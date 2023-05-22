@@ -1,0 +1,64 @@
+// Define the microcontroller we are using
+#ifndef __AVR_ATmega328P__
+#define __AVR_ATmega328P__
+#endif
+
+/*
+ * Teacher's code.cpp
+ *
+ * Created: 2021/5/3 下午 05:44:38
+ * Author : ASUS
+ */
+
+#define F_CPU 8000000UL
+#include <avr/io.h>
+#include <util/delay.h>
+#include <stdlib.h>
+#include <string.h>
+uint16_t ADCRead(const int);
+void USART_putstring(char *StringPtr);
+int main(void)
+{
+    CLKPR = 0b10000000;
+    CLKPR = 0b00000000;
+    DDRC = 0;
+    ADCSRA |= (1 << ADEN);
+    unsigned int BaudR = 19200;
+    unsigned int ubrr = (F_CPU / (BaudR * 16UL)) - 1;
+    UBRR0H = (unsigned char)(ubrr >> 8);
+    UBRR0L = (unsigned char)ubrr;
+    UCSR0C |= (1 << UCSZ01) | (1 << UCSZ00);
+    UCSR0B |= (1 << TXEN0);
+    while (1)
+    {
+        float sumVal = 0;
+        char Buffer[8];
+        for (int i = 0; i < 10; i++)
+            sumVal += (float)ADCRead(3);
+        sumVal /= 10; // mean of 10 readings
+        char *intStr = itoa((int)sumVal, Buffer, 10);
+        strcat(intStr, "\n");
+        USART_putstring(intStr);
+        _delay_ms(500);
+    }
+}
+uint16_t ADCRead(const int channel)
+{
+    ADMUX = 0b01000000;
+    ADMUX |= channel;
+    ADCSRA |= (1 << ADSC) | (1 << ADIF);
+    while ((ADCSRA & (1 << ADIF)) == 0)
+        ;
+    ADCSRA &= ~(1 << ADSC);
+    return ADC;
+}
+void USART_putstring(char *StringPtr)
+{
+    while (*StringPtr != 0x00)
+    {
+        while (!(UCSR0A & (1 << UDRE0)))
+            ;
+        UDR0 = *StringPtr;
+        StringPtr++;
+    }
+}
